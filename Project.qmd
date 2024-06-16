@@ -1,0 +1,343 @@
+---
+title: "Study on Suspicious Web Traffic"
+subtitle: "Data Programming Project"
+author: "Risto Andonovski"
+date: "`r format(Sys.time(), '%e %B %Y')`"
+format:
+ html:
+  embed-resources: true
+#bibliography: "bibliography.bib"
+execute: 
+  warning: false
+  messages: false
+  echo: true
+  error: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+## Libraries used
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(readr)
+```
+
+# Introduction
+
+League of Legend's is one of the most popular video games of modern
+times, even when it was just released it gained much popularity
+throughout the world, such that world championships quickly began to be
+held, now amassing millions upon millions of views each year. Here I
+will try to present the most important parts from the world
+championships, also called worlds, between 2015-2017, known as one of
+the best eras of domination in e-sports, we will try to find
+correspondence between many statistics and factors, and try to learn
+what are some advantages of the bigger teams and where the difference
+is. Data on the regional leagues is also provided. The Korean giant, SKT
+T1 is widely regarded as one of the best teams, if not the best team of
+all time. This era right here, which we will present, some people refer
+to as their first prime, dominating the league world, with their second
+prime being now (they are again dominating), we will mostly try to focus
+on them as there was rarely any competition for them, and try to find
+the relation between the data given to us in this dataset.
+
+## **About Dataset**
+
+Here's the database's description: LoL is an online, 5 vs. 5 competitive
+PC game. It is one of - if not the most - popular game currently around.
+Despite that LoL has surprisingly little mainstream coverage, which is
+most likely due to its complexity - it’s not an easy game to understand.
+
+LoL has a professional league. The top prize for the best team is over
+five million dollars and the average player makes a six-figure income.
+This data set aggregates basic statistics for every game since 2015
+across all the professional leagues other than China.
+
+One difference from back then is that League of Legends has gained big
+mainstream coverage.
+
+Important to note is that this data set contains 7 '.csv' files each
+containing data about many important parts of the game, as mentioned
+above, it is kind of complex. I will try to present the most important
+parts as it has a lot of attributes, and explain them in the game sense.
+
+```{r, warning=F}
+df <- lapply(list.files(path="./Dataset", pattern = "\\.csv", full.names=T), read_csv, show_col_types = FALSE)
+names(df)<-tools::file_path_sans_ext(basename(list.files(path="./Dataset", pattern = "\\.csv")))
+lapply(df,head)
+```
+
+### Dataset content
+
+This data set provided me also with a csv explaining the columns, so i
+will display it down below
+
+```{r}
+content <- read.csv('_columns.csv')
+content
+```
+
+# Aggregation of data
+
+## Champion-wise
+
+```         
+So, throughout the years, many new champions have been added to the game. Champions are the in-game character which is unique, that you choose in order to carry out the game. Each one has unique abilities, belongs to some class and some lane. Usually, the professional players play different type of champions than the normal player, because they are more inclined to team-play and more difficult champions to execute since they are better, obviously. While the average player plays for fun or just selfishly.
+We will try to find some correlation between the champions played during this time.
+Let's first display the most played champions, one year at a time.
+```
+
+```{r}
+count_champs <- \(x,y){
+  df$LeagueofLegends %>% filter(Year==y) %>% group_by(!!sym(x)) %>% summarise(times=n())
+}
+count_champs_inyear <- \(y){
+  df$LeagueofLegends %>% select(contains("Champ")) %>% names() %>% lapply(.,\(col){count_champs(col,y)})
+}
+2015:2017 %>% lapply(\(y){count_champs_inyear(y)}) -> results_per_year
+#results_per_year[[1]][[1]] %>% ggplot() + aes(x=blueTopChamp, y = times) + geom_bar(stat="identity",color="red")
+results_per_year[[1]] %>% lapply(\(d){
+  name = names(d)[1]
+  d %>% ggplot() + aes(y=!!sym(name), x = times) + geom_bar(stat="identity", color = "red") +
+  theme(axis.text.y = element_text(hjust = 0.5))
+})
+```
+
+Here we can see the most picked champions for all (5) lanes for each
+team (2 sides, red and blue) I will only present the top 3 since they
+are much more picked than the rest.
+
+```{r}
+results_per_year[[1]] %>% lapply(\(d){
+  d %>% .[order(.$times,decreasing = T),] %>% head(3)
+})
+```
+
+So as we can see, the most picked champions for
+
+-   Top lane: High HP champions, but mostly team-fight utility
+    champions, and Rumble who is a high damaging champion, I assume when
+    the support or jungle fulfills the tank(high HP) role.
+
+-   Jungle: Rek'Sai, Gragas and Jarvan IV, which are early-game
+    champions that heavily rely on ganks in the ealy game compared to
+    other junglers, and satisfy the playstyle of pro players as I will
+    talk about later
+
+-   Mid lane: Ahri, Viktor and Azir, these are a staple, even today
+    after many new champion releases these 3 still see much light of day
+    in the pro scene as they are heavy hitters, mages, as the mid lane
+    was designed to be and have insane team-fight potential, suitable
+    for the pros. Also insanelly high skill ceiling.
+
+-   ADC (Attack Damage Carry): Sivir, Corki and Lucian/Kalista. These
+    are kind of all over the place, as this was and still is the most
+    supported and important role in the game, these guys carry the most
+    potential to win fights and hence, games. So they are subject to ban
+    or some tactics. That's why here we have a mix mobile champions,
+    wave-clearers, and high damage output
+
+-   Support: Thresh, Janna and Alistar. To add to my previous remark
+    about ADCs, these guys play together ini the same lane, the Bot(tom)
+    lane, and there are many known good ADC-Support pairings, that's why
+    here we can see a bigger mix of champions as well, Janna is an
+    enchanter, healer, shielder, while Alistar is a heavy tank with high
+    HP and engage, Thresh is a mix of everything, he is a perfectly
+    designed champion in my opinion.
+
+Let's also show now for the other 2 years, 2016 and 2017
+
+```{r}
+#results_per_year[[2]] %>% lapply(\(d){
+#  name = names(d)[1]
+#  d %>% ggplot() + aes(y=!!sym(name), x = times) + geom_bar(stat="identity", color = "red") +
+#  theme(axis.text.y = element_text(hjust = 0.5))
+#})
+print(2016)
+results_per_year[[2]] %>% lapply(\(d){
+  d %>% .[order(.$times,decreasing = T),] %>% head(3)
+})
+#results_per_year[[3]] %>% lapply(\(d){
+#  name = names(d)[1]
+#  d %>% ggplot() + aes(y=!!sym(name), x = times) + geom_bar(stat="identity", color = "red") +
+#  theme(axis.text.y = element_text(hjust = 0.5))
+#})
+
+```
+
+```{r}
+print(2017)
+results_per_year[[3]] %>% lapply(\(d){
+  d %>% .[order(.$times,decreasing = T),] %>% head(3)
+})
+```
+
+As the meta (most effective tactics at the moment) shifts really often
+in this game, you can see a change in the champions, also, some
+champions released that year and are available in pro play now, like
+Bard,Jhin etc. so they get picked.
+
+Now that we have an overall look of what the pros play compared to a
+normal human who doesn't care that much about playing which champion, we
+can dive into win percentages, Let's see whether there's a difference of
+what side a team plays on (red/blue) and what's each champions win
+percentage on that side (for a decent amount of games played, let's put
+our threshold at 20 minimum).
+
+```{r}
+#rpy_filter <- results_per_year %>% lapply(\(d){
+#  lapply(d,\(x){
+#    x %>% filter(times>=20)
+#  })
+#})
+#rpy_filter[[1]] 
+percentage <- \(x,y){
+  df$LeagueofLegends %>% 
+    select(Year,names(x)[1],bResult,rResult) %>% 
+    filter(Year==y & !!sym(names(x)[1]) %in% x[[1]] & bResult>rResult) %>% group_by(!!sym(names(x)[1])) %>% summarise(wins=n()) %>% 
+    right_join(x, by=names(x)[1]) %>% 
+    filter(times>20) %>% 
+    mutate(win_pct = wins/times * 100)
+}
+#percentage(results_per_year[[2]][[1]])
+#df$LeagueofLegends %>% select(Year,blueTopChamp,bResult,rResult) %>% filter(Year==2015 & blueTopChamp %in% results_per_year[[1]][[1]]$blueTopChamp & bResult>rResult) %>% group_by(blueTopChamp) %>% summarise(wins=n()) %>% right_join(results_per_year[[1]][[1]], by="blueTopChamp") %>% filter(times>20) %>% mutate(win_pct = wins/times * 100)
+print("again, first 10 are for 2015, next 10 for 2016, etc.")
+#results_per_year %>% lapply(\(x){
+#  lapply(x, \(sl) {percentage(sl)})})
+lapply(results_per_year[[1]], \(sl) {percentage(sl,2015)}) -> r1
+r1 %>% lapply(\(s){
+  name = names(s)[1]
+  s %>% ggplot() + aes(x=times, y=win_pct, group =!!sym(name), color=!!sym(name)) + 
+    geom_point() + geom_step(aes(group=1), size=1)
+    #idk what group=1 is but it didn't work without it i though the groups above were enough
+  })
+#lapply(results_per_year[[2]], \(sl) {percentage(sl,2016)})
+#lapply(results_per_year[[3]], \(sl) {percentage(sl,2017)})
+```
+
+Now, let's see how kills affect the game, League is a game such that
+'snowballing' exists, it is a term for gaining early leads and using
+that to an advantage to keep rolling the game in your favor and gather
+bigger and bigger advantages over time, just like rolling a snowball.
+This is a display of some sample of games and where each kill has been
+taken on the map
+
+```{r, warning=F}
+data <- read.csv("./Dataset/kills.csv")
+data2 <- read.csv("./Dataset/LeagueofLegends.csv")
+data$x_pos <- as.numeric(as.character(data$x_pos))
+data$y_pos <- as.numeric(as.character(data$y_pos))
+ggplot() +
+ geom_point(data = data[1:10000,], aes(x = x_pos, y = y_pos), color = "black", size = 1) +
+ theme_minimal() +
+ xlim(0, 16000) +
+ ylim(0, 16000)
+#these are the coordinates of the map
+print("this is also what the map looks like, the blank points are basically structures on the map, you can not walk over them. The left straight line is top lane, mid lane is obvious, bot lane is the right one")
+```
+
+Since we talked about snowballing, let's see how early kill are
+distributed. And we will also see the difference between red and blue
+kills \*\*\* important mention Blue side is bottom left, red side is top
+right
+
+```{r}
+joined_df <- data %>%
+ left_join(data2, by = "Address") %>%
+ filter(str_starts(Victim, blueTeamTag) & Time<5)
+ggplot() +
+ geom_point(data = joined_df[1:10000,], aes(x = x_pos, y = y_pos), color = "black", size = 1) +
+ theme_minimal() +
+ xlim(0, 16000) +
+ ylim(0, 16000)
+print("now for the red side")
+joined_df <- data %>%
+ left_join(data2, by = "Address") %>%
+ filter(str_starts(Victim, redTeamTag) & Time<5)
+ggplot() +
+ geom_point(data = joined_df[1:10000,], aes(x = x_pos, y = y_pos), color = "black", size = 1) +
+ theme_minimal() +
+ xlim(0, 16000) +
+ ylim(0, 16000)
+```
+
+Naturally, the deaths are scattered a little bit towards the teams
+respective side, and most of them happen in the lanes, but as you can
+see there are a lot of kills in between, happening because the time like
+to skirmish (many vs many battle) in the early game for important
+objectives, like dragons, monsters and just diving(killing opponents
+under their turret)
+
+As I've mentioned monsters and objectives, it's good to note that they
+are one of the most important things in the game, they give a lot of
+gold, and buffs that help in further fights, so we will check out the
+win percentage based on the monsters slain.
+
+```{r}
+inner_join(df$LeagueofLegends,df$monsters, by="Address") %>% mutate(winner = ifelse(bResult>rResult,"b","r")) %>% group_by(Address,Team,winner) %>% summarise(count = n())  %>% mutate(Address = str_split(Address,"/",n=7)[[1]][7])  %>% pivot_wider(names_from = "Team", values_from="count") -> partial_result
+partial_result %>% head(1000)
+#here i cut the address string a little so it's clearer
+#also i made it wider so we can see better and compare
+
+```
+
+keep in mind here that not all monsters were in the game at the time,
+some, like elemental dragons and heralds were introduced after 2015 Now
+that we have the above table let's compare total monsters slain to wins,
+whether it affects something at all. But also, note that not all dragons
+are equal and all objectives are equal as i said above.
+
+```{r}
+partial_result %>% rowwise() %>%
+  mutate(
+    r_sum = sum(c_across(starts_with("r")& where(is.numeric)), na.rm = TRUE),
+    b_sum = sum(c_across(starts_with("b")& where(is.numeric)), na.rm = TRUE)
+  ) %>% select(Address,winner,r_sum,b_sum) -> partial_result2
+partial_result2 %>% head(200)
+```
+
+Here are the winners of games and the total of monsters slain. Lets find
+the percentage
+
+```{r}
+partial_result2 %>% mutate(more=ifelse(r_sum>b_sum,"r","b")) %>% mutate(expected_winner = ifelse(winner==more,1,0)) %>% ungroup() %>% summarise(exp_win = sum(expected_winner)/n())
+```
+
+So about 86.7% of the time the team with more monsters slain wins this
+games. Now let's look at SKT, as i promisedsince they were the best team
+throughout this time, winning 2 out of 3 worlds and losing once in the
+final.
+
+```{r}
+skt <- df$LeagueofLegends %>% filter(blueTeamTag =="SKT" | redTeamTag=="SKT")
+skt %>% head()
+skt %>% mutate(winner=ifelse(blueTeamTag=="SKT" & bResult > rResult,1,ifelse(redTeamTag=="SKT" & rResult > bResult,1,0))) %>% .[,c(1:6,ncol(.))] %>% summarise(total_pct = sum(winner)/n())
+```
+
+As we can see they won 71% of all the games they played, which is really
+good. And let's see the monsters now
+```{r}
+inner_join(skt,df$monsters, by="Address") %>% mutate(winner = ifelse(bResult>rResult,"b","r")) %>% group_by(Address,Team,winner) %>% summarise(count = n())  %>% mutate(Address = str_split(Address,"/",n=7)[[1]][7])  %>% pivot_wider(names_from = "Team", values_from="count") -> pr
+pr %>%  rowwise() %>%
+  mutate(
+    r_sum = sum(c_across(starts_with("r")& where(is.numeric)), na.rm = TRUE),
+    b_sum = sum(c_across(starts_with("b")& where(is.numeric)), na.rm = TRUE)
+  ) %>% select(Address,winner,r_sum,b_sum) -> pr2
+pr2
+#i just repeated steps for above but just for skt
+pr2%>% mutate(more=ifelse(r_sum>b_sum,"r","b")) %>% mutate(expected_winner = ifelse(winner==more,1,0)) %>% ungroup() %>% summarise(exp_win = sum(expected_winner)/n())
+```
+And, as we can see, SKT had slain more monsters in almost 89 percent of all games, and that is one of many reasons why they were so good
+
+#Conclusion
+
+This game is really complex and really vast, with a lot more factor and a lot more data to be included or studied, it heavily relies on many other things, as well as some intangible things like team chemistry and communication, It's a project to be extended upon, I wish i had more time and resources to work, it was really fun, some really good information can be mined here, but overall, my initial prediction that monsters and early game leads can heavily snowball games ended up proving pretty true.
+#References 
+I only used this dataset and nothing else, except my
+imagination and slight knowledge of the game
+\<https://www.kaggle.com/datasets/chuckephron/leagueoflegends\>
